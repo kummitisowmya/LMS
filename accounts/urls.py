@@ -7,6 +7,8 @@ from .views import (
     GoogleLoginView,
     PasswordResetRequestView,
     PasswordResetConfirmView,
+    RequestEmailOTPView,
+    VerifyEmailOTPView,
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path("google-login/", GoogleLoginView.as_view(), name="google-login"),
     path("reset-password/", PasswordResetRequestView.as_view(), name="reset-password"),
     path("reset-password-confirm/", PasswordResetConfirmView.as_view(), name="reset-password-confirm"),
+    path("request-otp/", RequestEmailOTPView.as_view(), name="request-otp"),
+    path("verify-otp/", VerifyEmailOTPView.as_view(), name="verify-otp"),
 ]

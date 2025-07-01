@@ -5,8 +5,13 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.auth.tokens import default_token_generator as token_generator
 from django.core.mail import EmailMessage
-from django.conf import settings
 import requests
+from datetime import timedelta
+import random
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import User
 
 User = get_user_model()
 
@@ -21,7 +26,8 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "mobile_number",
             "date_of_birth",
-            "role"
+            "role",
+            "date_joined",
         ]
 
 #Register Serializer
@@ -70,14 +76,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         subject = "Verify Your Email - LMS"
         message = f"""
-Hi {user.first_name},
-Thank you for registering with LMS.
-Please verify your email address by clicking the link below:
-{verify_url}
-If you didn't request this, you can ignore this email.
-Regards,  
-LMS Team
-"""
+        Hi {user.first_name},
+        Thank you for registering with LMS.
+        Please verify your email address by clicking the link below:
+        {verify_url}
+        If you didn't request this, you can ignore this email.
+        Regards,  
+        LMS Team
+        """
         email = EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
         email.send(fail_silently=False)
         return user
@@ -160,14 +166,14 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
         subject = "Reset Your Password - LMS"
         message = f"""
-Hi {user.first_name},
-We received a request to reset your password.
-Click the link below to set a new password:
-{reset_url}
-If you did not make this request, you can ignore this email.
-Regards,  
-LMS Team
-"""
+        Hi {user.first_name},
+        We received a request to reset your password.
+        Click the link below to set a new password:
+        {reset_url}
+        If you did not make this request, you can ignore this email.
+        Regards,  
+        LMS Team
+        """
         email = EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
         email.send(fail_silently=False)
 
@@ -194,3 +200,63 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         password = self.validated_data["new_password"]
         self.user.set_password(password)
         self.user.save()
+
+
+# serializers.py
+class EmailOTPRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, email):
+        if not User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("No user with this email.")
+        return email
+
+    def save(self):
+        email = self.validated_data["email"]
+        user = User.objects.get(email=email)
+
+        otp = f"{random.randint(100000, 999999)}"
+        user.otp = otp
+        user.otp_created_at = timezone.now()
+        user.save()
+
+        send_mail(
+            "Your OTP Code",
+            f"Your login OTP is: {otp}",
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+
+class EmailOTPVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+
+    def validate(self, data):
+        try:
+            user = User.objects.get(email=data["email"])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid email or OTP.")
+
+        # Optional: Check OTP expiry (e.g., 10 min)
+        if not user.otp or user.otp != data["otp"]:
+            raise serializers.ValidationError("Invalid OTP.")
+        if timezone.now() - user.otp_created_at > timedelta(minutes=10):
+            raise serializers.ValidationError("OTP has expired.")
+
+        self.user = user
+        return data
+
+    def create(self, validated_data):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        user = self.user
+        user.otp = None
+        user.otp_created_at = None
+        user.save()
+
+        refresh = RefreshToken.for_user(user)
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token)
+        }

@@ -151,3 +151,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 
+# Replace these with your Gmail credentials
+EMAIL_HOST_USER = 'sowmyakummetha@gmail.com'
+EMAIL_HOST_PASSWORD = 'ulfy hszn tkoj yjpt'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

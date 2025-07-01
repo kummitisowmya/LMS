@@ -5,7 +5,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.contrib.auth.tokens import default_token_generator as token_generator
-
+from .serializers import EmailOTPRequestSerializer, EmailOTPVerifySerializer
 from .models import User
 from .serializers import (
     RegisterSerializer,
@@ -108,3 +108,25 @@ class PasswordResetConfirmView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+
+
+class RequestEmailOTPView(generics.CreateAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EmailOTPRequestSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "OTP sent to email."}, status=status.HTTP_200_OK)
+
+
+class VerifyEmailOTPView(generics.CreateAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EmailOTPVerifySerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tokens = serializer.create(serializer.validated_data)
+        return Response(tokens, status=status.HTTP_200_OK)
