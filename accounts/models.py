@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.utils import timezone
 from django.db import models
 
 # Custom User Manager
@@ -38,14 +39,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     mobile_number = models.CharField(max_length=15, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="student")
+    date_joined = models.DateTimeField(default=timezone.now)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
 
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["first_name", "last_name", "role", "mobile_number", "date_of_birth"]
+    REQUIRED_FIELDS = ["first_name", "last_name", "role"]
 
     def __str__(self):
         return f"{self.email} ({self.role})"
+
